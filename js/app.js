@@ -275,50 +275,57 @@
                     const allRows = [];
                     for (const sheetName of workbook.SheetNames) {
                         const worksheet = workbook.Sheets[sheetName];
-                        const json = XLSX.utils.sheet_to_json(worksheet);
-                        if (json && json.length > 0) {
-                            totalRows += json.length;
-                            allRows.push(...json);
+                        // MENGGUNAKAN { header: 1 } agar data dibaca langsung sebagai array baris-per-baris
+                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                        if (rows && rows.length > 0) {
+                            totalRows += rows.length;
+                            allRows.push(...rows);
                         }
                     }
 
                     for (let i = 0; i < allRows.length; i++) {
                         const row = allRows[i];
-                        
+                        if (!row || row.length < 2) continue; // Abaikan baris kosong
+
                         // Memperbarui UI Teks Loading dengan Persentase
                         const loadingText = document.getElementById('loading-text');
                         if (loadingText) {
                             const percent = Math.floor(((i + 1) / totalRows) * 100);
-                            loadingText.innerHTML = `Mengimpor ke Awannya Google: <strong>${percent}%</strong><br><small>(${i + 1} dari ${totalRows} Aset)</small>`;
+                            loadingText.innerHTML = `Melacak Anti-Ganda: <strong>${percent}%</strong><br><small>(${i + 1} dari ${totalRows} Aset)</small>`;
                         }
 
-                        // Helper to loosely match column names
-                        const getVal = (obj, keys) => {
-                            const foundKey = Object.keys(obj).find(k => keys.some(key => k.toLowerCase().replace(/[^a-z0-9]/g, '') === key.toLowerCase().replace(/[^a-z0-9]/g)) || keys.some(key => k.toLowerCase().includes(key.toLowerCase())));
-                            return foundKey ? obj[foundKey] : null;
-                        };
+                        // JIKA kebetulan baris pertama adalah judul (Header), lewati saja
+                        const firstCol = String(row[0] || '').toLowerCase().trim();
+                        const secondCol = String(row[1] || '').toLowerCase().trim();
+                        if (firstCol === 'status' || secondCol.includes('kode')) continue;
 
-                        const kode = getVal(row, ['kodebarang', 'kode', 'assetcode', 'assetco']) || `INV-${Math.floor(Math.random() * 100000)}`;
-                        const nama = getVal(row, ['namabarang', 'nama', 'assetname', 'assetna', 'item']) || 'Tanpa Nama';
-                        const kategori = getVal(row, ['kategori', 'category', 'jenis', 'type', 'tipe', 'group', 'golongan', 'klasifikasi']) || 'Lainnya';
-                        const lokasi = getVal(row, ['lokasi', 'location']) || '-';
-                        const jumlahStr = getVal(row, ['jumlah', 'quantity', 'qty']) || '1';
-                        const kondisiStr = getVal(row, ['kondisi', 'status']) || 'Aktif';
-                        const keterangan = getVal(row, ['keterangan', 'note', 'description', 'desc']) || '';
+                        // EKSTRAKSI KHUSUS (MENGANUT STRUKTUR FOTO EXCEL USER)
+                        const kondisiStr = row[0] ? String(row[0]).trim() : 'Aktif';
                         
-                        // normalize kondisi
+                        // ID KRUSIAL: Jika kode dicomot dari Kolom ke-2 (Index 1) => Tidak mungkin duplikasi!
+                        let kodeStr = row[1] ? String(row[1]).trim() : '';
+                        if (!kodeStr) { 
+                            kodeStr = `INV-${Math.floor(Math.random() * 100000)}`; 
+                        }
+
+                        const nama = row[3] ? String(row[3]).trim() : 'Tanpa Nama';
+                        const kategori = row[4] ? String(row[4]).trim() : 'Lainnya';
+                        const lokasi = row[5] ? String(row[5]).trim() : '-';
+                        const jumlahStr = 1;
+                        const keterangan = row[6] ? String(row[6]).trim() : '';
+
                         let kondisi = 'Active';
                         const ks = String(kondisiStr).toLowerCase();
                         if (ks.includes('inactive') || ks.includes('nonaktif') || ks.includes('rusak') || ks.includes('hilang')) kondisi = 'Inactive';
 
                         const asset = {
-                            kode_barang: String(kode).trim(),
-                            nama_barang: String(nama).trim(),
-                            kategori: String(kategori).trim(),
-                            lokasi: String(lokasi).trim(),
+                            kode_barang: kodeStr,
+                            nama_barang: nama,
+                            kategori: kategori,
+                            lokasi: lokasi,
                             jumlah: parseInt(jumlahStr, 10) || 1,
                             kondisi: kondisi,
-                            keterangan: String(keterangan).trim(),
+                            keterangan: keterangan,
                         };
                         
                         await AssetsDB.add(asset);
