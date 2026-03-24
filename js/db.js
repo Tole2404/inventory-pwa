@@ -13,9 +13,29 @@ window.AssetsDB = {
 
     getAll: async function() {
         try {
-            const { data, error } = await _db.from(TABLE).select('*').order('tanggal', { ascending: false });
-            if (error) throw error;
-            return data || [];
+            let allData = [];
+            let from = 0;
+            const PAGE_SIZE = 1000;
+
+            while (true) {
+                const { data, error } = await _db
+                    .from(TABLE)
+                    .select('*')
+                    .range(from, from + PAGE_SIZE - 1)
+                    .order('tanggal', { ascending: false });
+
+                if (error) throw error;
+                if (!data || data.length === 0) break;
+
+                allData = allData.concat(data);
+
+                // Jika data yang dikembalikan kurang dari PAGE_SIZE, berarti sudah halaman terakhir
+                if (data.length < PAGE_SIZE) break;
+
+                from += PAGE_SIZE;
+            }
+
+            return allData;
         } catch (e) {
             console.error('Error getAll:', e);
             return [];
@@ -71,6 +91,49 @@ window.AssetsDB = {
         } catch (e) {
             console.error('Error delete:', e);
             throw e;
+        }
+    },
+
+    uploadPhoto: async function(base64DataUrl, assetId) {
+        try {
+            // Convert Base64 data URL to Blob
+            const res = await fetch(base64DataUrl);
+            const blob = await res.blob();
+            const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+            const fileName = `${assetId}_${Date.now()}.${ext}`;
+
+            // Upload to Supabase Storage bucket 'audit-photos'
+            const { data, error } = await _db.storage
+                .from('audit-photos')
+                .upload(fileName, blob, {
+                    contentType: blob.type,
+                    upsert: true
+                });
+
+            if (error) throw error;
+
+            // Get public URL
+            const { data: urlData } = _db.storage
+                .from('audit-photos')
+                .getPublicUrl(fileName);
+
+            return urlData.publicUrl;
+        } catch (e) {
+            console.error('Error uploadPhoto:', e);
+            throw e;
+        }
+    },
+
+    deletePhoto: async function(photoUrl) {
+        try {
+            if (!photoUrl || !photoUrl.includes('audit-photos')) return;
+            // Extract filename from URL
+            const parts = photoUrl.split('/audit-photos/');
+            if (parts.length < 2) return;
+            const fileName = parts[1].split('?')[0];
+            await _db.storage.from('audit-photos').remove([fileName]);
+        } catch (e) {
+            console.error('Error deletePhoto:', e);
         }
     },
 

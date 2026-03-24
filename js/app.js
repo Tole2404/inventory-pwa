@@ -149,11 +149,13 @@
         }
 
         let items = allItems.filter(i => {
-            const matchesQuery = !query || 
-                i.nama_barang.toLowerCase().includes(query) ||
-                i.kode_barang.toLowerCase().includes(query) ||
-                i.lokasi.toLowerCase().includes(query) ||
-                (i.kategori && i.kategori.toLowerCase().includes(query));
+            const matchesQuery = !query ||
+                (i.nama_barang  || '').toLowerCase().includes(query) ||
+                (i.kode_barang  || '').toLowerCase().includes(query) ||
+                (i.lokasi       || '').toLowerCase().includes(query) ||
+                (i.kategori     || '').toLowerCase().includes(query) ||
+                (i.subkategori  || '').toLowerCase().includes(query) ||
+                (i.tipe         || '').toLowerCase().includes(query);
 
             let matchesFilter = true;
             if (filterVal === 'audited') matchesFilter = !!i.audit_status;
@@ -407,8 +409,8 @@
                         let width = img.width;
                         let height = img.height;
 
-                        // Agresif: Max lebar 700px agar muat gampang di database Firestore (bukan upload Storage)
-                        const MAX_WIDTH = 700;
+                        // Max lebar 1200px — storage tidak ada batasan ketat
+                        const MAX_WIDTH = 1200;
                         if (width > MAX_WIDTH) {
                             height = Math.round((height * MAX_WIDTH) / width);
                             width = MAX_WIDTH;
@@ -419,17 +421,10 @@
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        // Kompres jadi JPEG kuliatas 60% (hasil antara 100-300KB)
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                        // Kompres jadi JPEG kualitas 70% untuk Storage
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
-                        // Validasi ukuran foto untuk Supabase (Max ~1MB per field)
-                        if (dataUrl.length > 900000) {
-                            showToast('Gambar sangat rumit, kompresi gagal di bawah limit. Coba ambil foto lain!', 'error');
-                            auditFoto.value = '';
-                            if (auditFotoPreview) auditFotoPreview.style.display = 'none';
-                            return;
-                        }
-
+                        // Simpan dataUrl sementara di img src untuk preview
                         if (auditImg) auditImg.src = dataUrl;
                         if (auditFotoPreview) auditFotoPreview.style.display = 'block';
                     }
@@ -451,9 +446,23 @@
             btnAuditSave.disabled = true;
 
             try {
-                // Di sini auditImg.src sudah berisi Base64 string dari HTML5 Canvas! (Sudah mini ~200KB)
-                // Jadi kita LANGSUNG tembak teks ini ke database! (Fully Offline Supported!)
-                let fileUrl = auditImg.src || '';
+                btnAuditSave.textContent = 'Menyimpan...';
+                btnAuditSave.disabled = true;
+
+                // Jika ada foto baru (Base64 di img src), upload ke Supabase Storage
+                let fotoUrl = '';
+                const currentSrc = auditImg ? auditImg.src : '';
+                const isBase64 = currentSrc && currentSrc.startsWith('data:image');
+                const isExistingUrl = currentSrc && currentSrc.startsWith('http');
+
+                if (isBase64) {
+                    // Foto baru dipilih → upload ke Storage
+                    showToast('Mengupload foto...', 'info');
+                    fotoUrl = await AssetsDB.uploadPhoto(currentSrc, auditId.value);
+                } else if (isExistingUrl) {
+                    // Foto lama (sudah tersimpan sebagai URL) → tetap pakai URL yang sama
+                    fotoUrl = currentSrc;
+                }
 
                 const auditData = {
                     id: auditId.value,
@@ -464,7 +473,7 @@
                     audit_keterangan: auditKeterangan.value.trim(),
                 };
 
-                if (fileUrl) auditData.audit_foto = fileUrl;
+                if (fotoUrl) auditData.audit_foto = fotoUrl;
 
                 await AssetsDB.update(auditData);
                 showToast('Hasil Audit Tersimpan!', 'success');
