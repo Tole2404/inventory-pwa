@@ -1,110 +1,84 @@
-// db.js (Firebase Firestore Edition)
-const firebaseConfig = {
-  apiKey: "AIzaSyCnm8ovju-mam9ElCnQxYdtOQVijQjHoSE",
-  authDomain: "sarassingkat.firebaseapp.com",
-  projectId: "sarassingkat",
-  storageBucket: "sarassingkat.firebasestorage.app",
-  messagingSenderId: "384508505990",
-  appId: "1:384508505990:web:d6965ea8df458d971ac607"
-};
+// db.js (Supabase Edition)
+const SUPABASE_URL = 'https://ureshufaiskkltturwrj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyZXNodWZhaXNra2x0dHVyd3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMzA2MDAsImV4cCI6MjA4OTkwNjYwMH0.sZx0X9bzCjA64ioiUKZgml3wsFJK8zLTekMCuefpMNU';
 
-// Initialize Firebase App
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-
-const db = firebase.firestore();
-
-// Enable offline persistence caching (The core of Offline-First PWA)
-db.enablePersistence().catch((err) => {
-    if (err.code == 'failed-precondition') {
-        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-    } else if (err.code == 'unimplemented') {
-        console.warn('The current browser does not support all of the features required to enable persistence');
-    }
-});
-
-const collectionName = 'assets';
+const _db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const TABLE = 'assets';
 
 window.AssetsDB = {
     init: async function() {
-        return Promise.resolve(); // Connection is ready automatically
+        // No special init needed for Supabase
+        return Promise.resolve();
     },
+
     getAll: async function() {
         try {
-            const snapshot = await db.collection(collectionName).get();
-            const items = [];
-            snapshot.forEach(doc => {
-                items.push({ id: doc.id, ...doc.data() });
-            });
-            return items;
+            const { data, error } = await _db.from(TABLE).select('*').order('tanggal', { ascending: false });
+            if (error) throw error;
+            return data || [];
         } catch (e) {
             console.error('Error getAll:', e);
             return [];
         }
     },
+
     getById: async function(id) {
         try {
-            const doc = await db.collection(collectionName).doc(id.toString()).get();
-            if (doc.exists) {
-                return { id: doc.id, ...doc.data() };
-            }
-            return null;
+            const { data, error } = await _db.from(TABLE).select('*').eq('id', id.toString()).single();
+            if (error) throw error;
+            return data;
         } catch (e) {
             console.error('Error getById:', e);
             return null;
         }
     },
+
     add: async function(asset) {
         asset.tanggal = asset.tanggal || Date.now();
         try {
-            // Menggunakan kode_barang sebagai ID dokumen untuk MENCEGAH DUPLIKASI DATA
-            // Jika kode_barang ini ternyata sudah ada sebelumnya, Firestore akan langsung 'menimpa/meng-update' datanya
+            // Use kode_barang as ID to prevent duplicates (same as Firebase logic)
             let docId = (asset.kode_barang || `INV-${Date.now()}`).toString().trim();
-            
-            // Bersihkan karakter yang dilarang digunakan sebagai nama file ID oleh Firebase
             docId = docId.replace(/[\/\#\.\$\[\]]/g, '-');
-            
-            await db.collection(collectionName).doc(docId).set(asset);
-            return docId;
+            asset.id = docId;
+
+            // upsert: insert or update if ID already exists
+            const { data, error } = await _db.from(TABLE).upsert(asset, { onConflict: 'id' }).select().single();
+            if (error) throw error;
+            return data.id;
         } catch (e) {
             console.error('Error add:', e);
             throw e;
         }
     },
+
     update: async function(asset) {
         asset.tanggal = Date.now();
         const id = asset.id;
-        delete asset.id; // Strip the ID before sending to firestore to keep document clean
         try {
-            await db.collection(collectionName).doc(id.toString()).set(asset, { merge: true });
+            const { error } = await _db.from(TABLE).update(asset).eq('id', id.toString());
+            if (error) throw error;
             return id;
         } catch (e) {
             console.error('Error update:', e);
             throw e;
         }
     },
+
     delete: async function(id) {
         try {
-            await db.collection(collectionName).doc(id.toString()).delete();
+            const { error } = await _db.from(TABLE).delete().eq('id', id.toString());
+            if (error) throw error;
         } catch (e) {
             console.error('Error delete:', e);
             throw e;
         }
     },
+
     clear: async function() {
         try {
-            const snapshot = await db.collection(collectionName).get();
-            const docs = snapshot.docs;
-            // Delete in chunks of 500 (Firestore bulk limitation safety threshold)
-            while (docs.length > 0) {
-                const chunk = docs.splice(0, 500);
-                const batch = db.batch();
-                chunk.forEach(doc => {
-                    batch.delete(doc.ref);
-                });
-                await batch.commit();
-            }
+            // Delete all rows (neq '' matches all non-empty IDs)
+            const { error } = await _db.from(TABLE).delete().neq('id', '____NONE____');
+            if (error) throw error;
         } catch (e) {
             console.error('Error clear:', e);
             throw e;

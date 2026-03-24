@@ -422,7 +422,7 @@
                         // Kompres jadi JPEG kuliatas 60% (hasil antara 100-300KB)
                         const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
 
-                        // Validasi ketat memori db api Firestore (Max 1MB ~ 900.000 chars)
+                        // Validasi ukuran foto untuk Supabase (Max ~1MB per field)
                         if (dataUrl.length > 900000) {
                             showToast('Gambar sangat rumit, kompresi gagal di bawah limit. Coba ambil foto lain!', 'error');
                             auditFoto.value = '';
