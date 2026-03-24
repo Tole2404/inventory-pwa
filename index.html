@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Aplikasi Inventaris Aset - PWA Offline-First">
+    <meta name="theme-color" content="#0f172a">
+    <title>Tracking Assets</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Online/Offline Indicator -->
+    <div id="connectivity-bar" class="connectivity-bar online">
+        <span id="connectivity-icon">●</span>
+        <span id="connectivity-text">Online</span>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Tracking Assets</h1>
+                    <p class="subtitle">Inventaris Aset Offline-First</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="stats-badges">
+                    <div class="stat-badge" id="stat-total">
+                        <span class="stat-value">0</span>
+                        <span class="stat-label">Total</span>
+                    </div>
+                    <div class="stat-badge" id="stat-storage" style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2);">
+                        <span class="stat-value" id="storage-value">0 KB</span>
+                        <span class="stat-label">Storage</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Toolbar -->
+    <section class="toolbar">
+        <div class="toolbar-content">
+            <div class="search-box">
+                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" id="search-input" placeholder="Cari aset (nama, kode, lokasi)..." autocomplete="off">
+            </div>
+            <input type="file" id="file-import" accept=".xlsx, .xls, .csv" style="display: none;">
+            <button class="btn-add" id="btn-install" title="Install App" style="background: linear-gradient(135deg, #3b82f6, #2563eb); margin-right: 8px; display: none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Install App</span>
+            </button>
+            <button class="btn-add" id="btn-delete-all" title="Hapus Semua Data" style="background: linear-gradient(135deg, #ef4444, #dc2626); margin-right: 8px; display: none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+                <span>Kosongkan</span>
+            </button>
+            <button class="btn-add" id="btn-import" title="Import Data" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-right: 8px; display: none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>Import Data</span>
+            </button>
+            <button class="btn-add" id="btn-add" title="Tambah Aset">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                <span>Tambah Aset</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div id="asset-list" class="asset-list">
+            <!-- Asset cards rendered here by JS -->
+        </div>
+        <div id="empty-state" class="empty-state" style="display:none;">
+            <!-- Managed by JS -->
+        </div>
+        <div id="loading-state" class="empty-state" style="display:none;">
+            <div class="spinner"></div>
+            <h3>Memproses Data...</h3>
+            <p>Mohon tunggu sebentar.</p>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-title">Tambah Aset</h2>
+                <button class="modal-close" id="btn-modal-close" title="Tutup">&times;</button>
+            </div>
+            <form id="asset-form" class="asset-form">
+                <input type="hidden" id="form-id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="form-kode">Kode Barang</label>
+                        <input type="text" id="form-kode" placeholder="INV-001" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="form-nama">Nama Barang</label>
+                        <input type="text" id="form-nama" placeholder="Laptop Dell Latitude" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="form-kategori">Kategori</label>
+                        <select id="form-kategori" required>
+                            <option value="">Pilih Kategori</option>
+                            <option value="Elektronik">Elektronik</option>
+                            <option value="Furniture">Furniture</option>
+                            <option value="Kendaraan">Kendaraan</option>
+                            <option value="Peralatan Kantor">Peralatan Kantor</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="form-lokasi">Lokasi</label>
+                        <input type="text" id="form-lokasi" placeholder="Ruang Server Lt.2" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="form-kondisi">Kondisi / Status</label>
+                        <select id="form-kondisi" required>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                    <input type="hidden" id="form-jumlah" value="1">
+                </div>
+                <div class="form-group full-width">
+                    <label for="form-keterangan">Keterangan</label>
+                    <textarea id="form-keterangan" rows="3" placeholder="Catatan tambahan (opsional)"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" id="btn-cancel">Batal</button>
+                    <button type="submit" class="btn-save" id="btn-save">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detail-overlay" class="modal-overlay">
+        <div class="modal detail-modal">
+            <div class="modal-header">
+                <h2>Detail Aset</h2>
+                <button class="modal-close" id="btn-detail-close" title="Tutup">&times;</button>
+            </div>
+            <div class="detail-content" id="detail-content">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation -->
+    <div id="confirm-overlay" class="modal-overlay">
+        <div class="modal confirm-modal">
+            <div class="confirm-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
+            </div>
+            <h3>Hapus Aset?</h3>
+            <p id="confirm-text">Apakah Anda yakin ingin menghapus aset ini?</p>
+            <div class="confirm-actions">
+                <button class="btn-cancel" id="btn-confirm-cancel">Batal</button>
+                <button class="btn-delete" id="btn-confirm-delete">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('SW registered:', reg.scope))
+                    .catch(err => console.log('SW registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
