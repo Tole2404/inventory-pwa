@@ -58,8 +58,15 @@ window.AssetsDB = {
     add: async function(asset) {
         asset.tanggal = asset.tanggal || Date.now();
         try {
-            const docRef = await db.collection(collectionName).add(asset);
-            return docRef.id;
+            // Menggunakan kode_barang sebagai ID dokumen untuk MENCEGAH DUPLIKASI DATA
+            // Jika kode_barang ini ternyata sudah ada sebelumnya, Firestore akan langsung 'menimpa/meng-update' datanya
+            let docId = (asset.kode_barang || `INV-${Date.now()}`).toString().trim();
+            
+            // Bersihkan karakter yang dilarang digunakan sebagai nama file ID oleh Firebase
+            docId = docId.replace(/[\/\#\.\$\[\]]/g, '-');
+            
+            await db.collection(collectionName).doc(docId).set(asset);
+            return docId;
         } catch (e) {
             console.error('Error add:', e);
             throw e;
@@ -70,7 +77,7 @@ window.AssetsDB = {
         const id = asset.id;
         delete asset.id; // Strip the ID before sending to firestore to keep document clean
         try {
-            await db.collection(collectionName).doc(id.toString()).update(asset);
+            await db.collection(collectionName).doc(id.toString()).set(asset, { merge: true });
             return id;
         } catch (e) {
             console.error('Error update:', e);

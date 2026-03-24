@@ -270,45 +270,59 @@
                     
                     let importedCount = 0;
                     
+                    // Hitung total baris di seluruh sheet terlebih dahulu
+                    let totalRows = 0;
+                    const allRows = [];
                     for (const sheetName of workbook.SheetNames) {
                         const worksheet = workbook.Sheets[sheetName];
                         const json = XLSX.utils.sheet_to_json(worksheet);
-
-                        if (!json || json.length === 0) continue;
-
-                        for (const row of json) {
-                            // Helper to loosely match column names
-                            const getVal = (obj, keys) => {
-                                const foundKey = Object.keys(obj).find(k => keys.some(key => k.toLowerCase().replace(/[^a-z0-9]/g, '') === key.toLowerCase().replace(/[^a-z0-9]/g)) || keys.some(key => k.toLowerCase().includes(key.toLowerCase())));
-                                return foundKey ? obj[foundKey] : null;
-                            };
-
-                            const kode = getVal(row, ['kodebarang', 'kode', 'assetcode', 'assetco']) || `INV-${Math.floor(Math.random() * 100000)}`;
-                            const nama = getVal(row, ['namabarang', 'nama', 'assetname', 'assetna', 'item']) || 'Tanpa Nama';
-                            const kategori = getVal(row, ['kategori', 'category', 'jenis', 'type', 'tipe', 'group', 'golongan', 'klasifikasi']) || 'Lainnya';
-                            const lokasi = getVal(row, ['lokasi', 'location']) || '-';
-                            const jumlahStr = getVal(row, ['jumlah', 'quantity', 'qty']) || '1';
-                            const kondisiStr = getVal(row, ['kondisi', 'status']) || 'Aktif';
-                            const keterangan = getVal(row, ['keterangan', 'note', 'description', 'desc']) || '';
-                            
-                            // normalize kondisi
-                            let kondisi = 'Active';
-                            const ks = String(kondisiStr).toLowerCase();
-                            if (ks.includes('inactive') || ks.includes('nonaktif') || ks.includes('rusak') || ks.includes('hilang')) kondisi = 'Inactive';
-
-                            const asset = {
-                                kode_barang: String(kode).trim(),
-                                nama_barang: String(nama).trim(),
-                                kategori: String(kategori).trim(),
-                                lokasi: String(lokasi).trim(),
-                                jumlah: parseInt(jumlahStr, 10) || 1,
-                                kondisi: kondisi,
-                                keterangan: String(keterangan).trim(),
-                            };
-                            
-                            await AssetsDB.add(asset);
-                            importedCount++;
+                        if (json && json.length > 0) {
+                            totalRows += json.length;
+                            allRows.push(...json);
                         }
+                    }
+
+                    for (let i = 0; i < allRows.length; i++) {
+                        const row = allRows[i];
+                        
+                        // Memperbarui UI Teks Loading dengan Persentase
+                        const loadingText = document.getElementById('loading-text');
+                        if (loadingText) {
+                            const percent = Math.floor(((i + 1) / totalRows) * 100);
+                            loadingText.innerHTML = `Mengimpor ke Awannya Google: <strong>${percent}%</strong><br><small>(${i + 1} dari ${totalRows} Aset)</small>`;
+                        }
+
+                        // Helper to loosely match column names
+                        const getVal = (obj, keys) => {
+                            const foundKey = Object.keys(obj).find(k => keys.some(key => k.toLowerCase().replace(/[^a-z0-9]/g, '') === key.toLowerCase().replace(/[^a-z0-9]/g)) || keys.some(key => k.toLowerCase().includes(key.toLowerCase())));
+                            return foundKey ? obj[foundKey] : null;
+                        };
+
+                        const kode = getVal(row, ['kodebarang', 'kode', 'assetcode', 'assetco']) || `INV-${Math.floor(Math.random() * 100000)}`;
+                        const nama = getVal(row, ['namabarang', 'nama', 'assetname', 'assetna', 'item']) || 'Tanpa Nama';
+                        const kategori = getVal(row, ['kategori', 'category', 'jenis', 'type', 'tipe', 'group', 'golongan', 'klasifikasi']) || 'Lainnya';
+                        const lokasi = getVal(row, ['lokasi', 'location']) || '-';
+                        const jumlahStr = getVal(row, ['jumlah', 'quantity', 'qty']) || '1';
+                        const kondisiStr = getVal(row, ['kondisi', 'status']) || 'Aktif';
+                        const keterangan = getVal(row, ['keterangan', 'note', 'description', 'desc']) || '';
+                        
+                        // normalize kondisi
+                        let kondisi = 'Active';
+                        const ks = String(kondisiStr).toLowerCase();
+                        if (ks.includes('inactive') || ks.includes('nonaktif') || ks.includes('rusak') || ks.includes('hilang')) kondisi = 'Inactive';
+
+                        const asset = {
+                            kode_barang: String(kode).trim(),
+                            nama_barang: String(nama).trim(),
+                            kategori: String(kategori).trim(),
+                            lokasi: String(lokasi).trim(),
+                            jumlah: parseInt(jumlahStr, 10) || 1,
+                            kondisi: kondisi,
+                            keterangan: String(keterangan).trim(),
+                        };
+                        
+                        await AssetsDB.add(asset);
+                        importedCount++;
                     }
 
                     fileImport.value = ''; // Reset file input
