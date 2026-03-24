@@ -616,51 +616,66 @@
                     // Embed Image if exists
                     if (item.audit_foto) {
                         try {
-                            const b64 = await new Promise((resolve) => {
-                                // Skip if not a valid data URL
-                                if (typeof item.audit_foto !== 'string' || !item.audit_foto.startsWith('data:image')) {
-                                    return resolve(null);
+                            const b64 = await (async () => {
+                                const src = item.audit_foto;
+                                if (!src || typeof src !== 'string') return null;
+
+                                let dataUrl = null;
+
+                                if (src.startsWith('http')) {
+                                    // Foto dari Supabase Storage → fetch dulu
+                                    const res = await fetch(src);
+                                    if (!res.ok) return null;
+                                    const blob = await res.blob();
+                                    dataUrl = await new Promise(resolve => {
+                                        const fr = new FileReader();
+                                        fr.onload = () => resolve(fr.result);
+                                        fr.onerror = () => resolve(null);
+                                        fr.readAsDataURL(blob);
+                                    });
+                                } else if (src.startsWith('data:image')) {
+                                    // Legacy Base64
+                                    dataUrl = src;
                                 }
-                                const img = new Image();
-                                img.onerror = () => resolve(null);
-                                img.onload = () => {
-                                    try {
-                                        const cvs = document.createElement('canvas');
-                                        cvs.width = img.width;
-                                        cvs.height = img.height;
-                                        const ctx = cvs.getContext('2d');
-                                        ctx.drawImage(img, 0, 0);
-                                        resolve(cvs.toDataURL('image/png').split('base64,')[1]);
-                                    } catch(e) {
-                                        resolve(null);
-                                    }
-                                };
-                                img.src = item.audit_foto;
-                            });
+
+                                if (!dataUrl) return null;
+
+                                // Re-render via Canvas → PNG pure base64
+                                return await new Promise(resolve => {
+                                    const img = new Image();
+                                    img.crossOrigin = 'anonymous';
+                                    img.onerror = () => resolve(null);
+                                    img.onload = () => {
+                                        try {
+                                            const cvs = document.createElement('canvas');
+                                            cvs.width = img.width;
+                                            cvs.height = img.height;
+                                            const ctx = cvs.getContext('2d');
+                                            ctx.drawImage(img, 0, 0);
+                                            resolve(cvs.toDataURL('image/png').split('base64,')[1]);
+                                        } catch(e) { resolve(null); }
+                                    };
+                                    img.src = dataUrl;
+                                });
+                            })();
 
                             if (b64) {
                                 const imageId = workbook.addImage({
                                     base64: b64,
                                     extension: 'png',
                                 });
-                                
-                                // Adjust row height for image
                                 row.height = 100;
-
                                 worksheet.addImage(imageId, {
                                     tl: { col: 10.1, row: row.number - 1 + 0.1 },
                                     br: { col: 10.9, row: row.number - 0.1 },
                                     editAs: 'oneCell'
                                 });
-                            } else {
-                                // No valid image data — leave cell empty
                             }
                         } catch (e) {
                             console.error('Add image to excel error:', e);
-                            // Leave cell empty on error
                         }
                     }
-                    // No else — if no foto, column stays empty
+                    // No foto → cell stays empty
                 }
 
                 // Generate Buffer using WriteBuffer
