@@ -19,6 +19,22 @@
     const detailContent = document.getElementById('detail-content');
     const btnDetailClose = document.getElementById('btn-detail-close');
     const modalTitle = document.getElementById('modal-title');
+    const auditOverlay = document.getElementById('audit-overlay');
+    const auditForm = document.getElementById('audit-form');
+    const auditId = document.getElementById('audit-id');
+    const auditStatus = document.getElementById('audit-status');
+    const auditVisual = document.getElementById('audit-visual');
+    const auditLokasi = document.getElementById('audit-lokasi');
+    const auditPetugas = document.getElementById('audit-petugas');
+    const auditFoto = document.getElementById('audit-foto');
+    const auditKeterangan = document.getElementById('audit-keterangan');
+    const btnAuditClose = document.getElementById('btn-audit-close');
+    const btnAuditCancel = document.getElementById('btn-audit-cancel');
+    const auditInfo = document.getElementById('audit-info');
+    const groupAuditFoto = document.getElementById('group-audit-foto');
+    const auditFotoPreview = document.getElementById('audit-foto-preview');
+    const auditImg = document.getElementById('audit-img');
+    const btnAuditSave = document.getElementById('btn-audit-save');
     const assetForm = document.getElementById('asset-form');
     const formId = document.getElementById('form-id');
     const formKode = document.getElementById('form-kode');
@@ -152,13 +168,18 @@
 
     function cardHTML(item, idx) {
         const sc = String(item.kondisi).toLowerCase().replace(/[^a-z]/g, '');
-        return `<div class="asset-card" style="animation-delay:${idx*0.04}s" onclick="appDetail('${item.id}')">
+        const auditBadge = item.audit_petugas ? `<div style="background:rgba(16,185,129,0.2);color:#34d399;padding:4px 8px;border-radius:12px;font-size:11px;display:inline-block;margin-top:8px;">✅ Diaudit: ${esc(item.audit_petugas)}</div>` : '';
+        
+        return `<div class="asset-card" style="animation-delay:${idx*0.04}s" onclick="appAudit('${item.id}')">
             <div class="card-header">
                 <div class="card-title-group">
                     <div class="card-kode">${esc(item.kode_barang)}</div>
                     <div class="card-nama" title="${esc(item.nama_barang)}">${esc(item.nama_barang)}</div>
                 </div>
-                <span class="status-badge ${sc}">${esc(item.kondisi)}</span>
+                <div style="text-align:right">
+                    <span class="status-badge ${sc}">${esc(item.kondisi)}</span>
+                    <br>${auditBadge}
+                </div>
             </div>
             <div class="card-details">
                 <div class="detail-item"><span class="detail-label">Kategori</span><span class="detail-value">${esc(item.kategori||'-')}</span></div>
@@ -173,40 +194,134 @@
         </div>`;
     }
 
-    window.appDetail = async function(id) {
+    window.appAudit = async function(id) {
         const item = await AssetsDB.getById(id);
         if (!item) return showToast('Data tidak ditemukan', 'error');
 
-        const ket = item.keterangan ? `<div class="detail-keterangan"><strong>Catatan:</strong><br>${esc(item.keterangan).replace(/\\n/g, '<br>')}</div>` : '';
-        const dt = formatDate(item.tanggal);
-        const sc = String(item.kondisi).toLowerCase().replace(/[^a-z]/g, '');
-
-        detailContent.innerHTML = `
-            <table class="detail-table">
-                <tr><td>Kode Barang</td><td>${esc(item.kode_barang)}</td></tr>
-                <tr><td>Nama Barang</td><td><strong>${esc(item.nama_barang)}</strong></td></tr>
-                <tr><td>Kategori</td><td>${esc(item.kategori || '-')}</td></tr>
-                <tr><td>Lokasi</td><td>${esc(item.lokasi)}</td></tr>
-                <tr><td>Status</td><td><span class="status-badge ${sc}">${esc(item.kondisi)}</span></td></tr>
-            </table>
-            ${ket}
+        auditId.value = id;
+        
+        auditInfo.innerHTML = `
+            <div><strong>Kode:</strong> ${esc(item.kode_barang)}</div>
+            <div><strong>Nama:</strong> ${esc(item.nama_barang)}</div>
+            <div><strong>Lokasi:</strong> ${esc(item.lokasi)}</div>
+            <div><strong>Kategori:</strong> ${esc(item.kategori || '-')}</div>
         `;
-        detailOverlay.classList.add('active');
+
+        auditStatus.value = item.audit_status || "";
+        auditVisual.value = item.audit_visual || "";
+        auditLokasi.value = item.audit_lokasi || "";
+        auditPetugas.value = item.audit_petugas || "";
+        auditKeterangan.value = item.audit_keterangan || "";
+        
+        if (item.audit_status === 'Rusak') {
+            groupAuditFoto.style.display = 'block';
+        } else {
+            groupAuditFoto.style.display = 'none';
+        }
+
+        if (item.audit_foto) {
+            auditImg.src = item.audit_foto;
+            auditFotoPreview.style.display = 'block';
+        } else {
+            auditImg.src = '';
+            auditFotoPreview.style.display = 'none';
+        }
+
+        auditFoto.value = ''; 
+        auditOverlay.classList.add('active');
         document.body.style.overflow = 'hidden';
     };
 
-    if (btnDetailClose) {
-        btnDetailClose.addEventListener('click', () => {
-            detailOverlay.classList.remove('active');
-            document.body.style.overflow = '';
-        });
-        detailOverlay.addEventListener('click', e => {
-            if (e.target === detailOverlay) {
-                detailOverlay.classList.remove('active');
-                document.body.style.overflow = '';
+    if (auditStatus) {
+        auditStatus.addEventListener('change', function() {
+            if (this.value === 'Rusak') {
+                groupAuditFoto.style.display = 'block';
+            } else {
+                groupAuditFoto.style.display = 'none';
+                if (auditFoto) auditFoto.value = '';
+                if (auditFotoPreview) auditFotoPreview.style.display = 'none';
+                if (auditImg) auditImg.src = '';
             }
         });
     }
+
+    if (auditFoto) {
+        auditFoto.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 2 * 1024 * 1024) {
+                    showToast('Ukuran foto melebihi 2MB!', 'error');
+                    this.value = '';
+                    auditFotoPreview.style.display = 'none';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    auditImg.src = evt.target.result;
+                    auditFotoPreview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            } else {
+                auditFotoPreview.style.display = 'none';
+            }
+        });
+    }
+
+    if (auditForm) {
+        auditForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            
+            const file = auditFoto.files[0];
+            if (file && !navigator.onLine) {
+                showToast('Gagal: Upload foto memerlukan koneksi Internet!', 'error');
+                return;
+            }
+
+            const btnText = btnAuditSave.textContent;
+            btnAuditSave.textContent = 'Menyimpan...';
+            btnAuditSave.disabled = true;
+
+            try {
+                let fileUrl = auditImg.src && !auditImg.src.startsWith('data:') ? auditImg.src : '';
+                if (file) {
+                    const extension = file.name.split('.').pop() || 'jpg';
+                    const filename = `${auditId.value}_${Date.now()}.${extension}`;
+                    fileUrl = await AssetsDB.uploadPhoto(file, filename);
+                }
+
+                const auditData = {
+                    id: auditId.value,
+                    audit_status: auditStatus.value,
+                    audit_visual: auditVisual.value,
+                    audit_lokasi: auditLokasi.value,
+                    audit_petugas: auditPetugas.value,
+                    audit_keterangan: auditKeterangan.value.trim(),
+                };
+                
+                if (fileUrl) auditData.audit_foto = fileUrl;
+
+                await AssetsDB.update(auditData); 
+                showToast('Hasil Audit Tersimpan!', 'success');
+                closeAudit();
+                await renderAssets();
+            } catch (err) {
+                console.error(err);
+                showToast('Gagal menyimpan: ' + err.message, 'error');
+            } finally {
+                btnAuditSave.textContent = btnText;
+                btnAuditSave.disabled = false;
+            }
+        });
+    }
+
+    function closeAudit() {
+        auditOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+        auditForm.reset();
+    }
+    if (btnAuditClose) btnAuditClose.addEventListener('click', closeAudit);
+    if (btnAuditCancel) btnAuditCancel.addEventListener('click', closeAudit);
+    if (auditOverlay) auditOverlay.addEventListener('click', e => { if (e.target === auditOverlay) closeAudit(); });
 
     function updateStats(items) {
         document.querySelector('#stat-total .stat-value').textContent = items.length;
@@ -441,7 +556,7 @@
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
             if (confirmOverlay.classList.contains('active')) { deleteTargetId = null; confirmOverlay.classList.remove('active'); document.body.style.overflow = ''; }
-            else if (detailOverlay && detailOverlay.classList.contains('active')) { detailOverlay.classList.remove('active'); document.body.style.overflow = ''; }
+            else if (auditOverlay && auditOverlay.classList.contains('active')) closeAudit();
             else if (modalOverlay.classList.contains('active')) closeModal();
         }
     });

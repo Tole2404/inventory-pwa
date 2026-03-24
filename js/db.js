@@ -14,6 +14,7 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.firestore();
+const storage = firebase.storage();
 
 // Enable offline persistence caching (The core of Offline-First PWA)
 db.enablePersistence().catch((err) => {
@@ -107,6 +108,17 @@ window.AssetsDB = {
             }
         } catch (e) {
             console.error('Error clear:', e);
+            throw e;
+        }
+    },
+    uploadPhoto: async function(file, filename) {
+        try {
+            const storageRef = storage.ref();
+            const photoRef = storageRef.child(`kerusakan/${filename}`);
+            await photoRef.put(file);
+            return await photoRef.getDownloadURL();
+        } catch (e) {
+            console.error('Error upload:', e);
             throw e;
         }
     }
