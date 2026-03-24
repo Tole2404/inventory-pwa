@@ -1,98 +1,106 @@
-/**
- * db.js — IndexedDB Wrapper for Assets Inventory
- * Database: assetsDB
- * Object Store: assets
- */
+// db.js (Firebase Firestore Edition)
+const firebaseConfig = {
+  apiKey: "AIzaSyCnm8ovju-mam9ElCnQxYdtOQVijQjHoSE",
+  authDomain: "sarassingkat.firebaseapp.com",
+  projectId: "sarassingkat",
+  storageBucket: "sarassingkat.firebasestorage.app",
+  messagingSenderId: "384508505990",
+  appId: "1:384508505990:web:d6965ea8df458d971ac607"
+};
 
-const AssetsDB = (() => {
-    const DB_NAME = 'assetsDB';
-    const DB_VERSION = 1;
-    const STORE_NAME = 'assets';
+// Initialize Firebase App
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 
-    /** Open (or create) the database */
-    function openDB() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
+const db = firebase.firestore();
 
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    const store = db.createObjectStore(STORE_NAME, {
-                        keyPath: 'id',
-                        autoIncrement: true,
-                    });
-                    store.createIndex('kode_barang', 'kode_barang', { unique: false });
-                    store.createIndex('nama_barang', 'nama_barang', { unique: false });
-                    store.createIndex('kategori', 'kategori', { unique: false });
-                    store.createIndex('lokasi', 'lokasi', { unique: false });
-                    store.createIndex('kondisi', 'kondisi', { unique: false });
-                    store.createIndex('tanggal', 'tanggal', { unique: false });
-                }
-            };
-
-            request.onsuccess = (event) => resolve(event.target.result);
-            request.onerror = (event) => reject(event.target.error);
-        });
+// Enable offline persistence caching (The core of Offline-First PWA)
+db.enablePersistence().catch((err) => {
+    if (err.code == 'failed-precondition') {
+        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+    } else if (err.code == 'unimplemented') {
+        console.warn('The current browser does not support all of the features required to enable persistence');
     }
+});
 
-    /** Get a transaction + object store */
-    async function getStore(mode = 'readonly') {
-        const db = await openDB();
-        const tx = db.transaction(STORE_NAME, mode);
-        return tx.objectStore(STORE_NAME);
+const collectionName = 'assets';
+
+window.AssetsDB = {
+    init: async function() {
+        return Promise.resolve(); // Connection is ready automatically
+    },
+    getAll: async function() {
+        try {
+            const snapshot = await db.collection(collectionName).get();
+            const items = [];
+            snapshot.forEach(doc => {
+                items.push({ id: doc.id, ...doc.data() });
+            });
+            return items;
+        } catch (e) {
+            console.error('Error getAll:', e);
+            return [];
+        }
+    },
+    getById: async function(id) {
+        try {
+            const doc = await db.collection(collectionName).doc(id.toString()).get();
+            if (doc.exists) {
+                return { id: doc.id, ...doc.data() };
+            }
+            return null;
+        } catch (e) {
+            console.error('Error getById:', e);
+            return null;
+        }
+    },
+    add: async function(asset) {
+        asset.tanggal = asset.tanggal || Date.now();
+        try {
+            const docRef = await db.collection(collectionName).add(asset);
+            return docRef.id;
+        } catch (e) {
+            console.error('Error add:', e);
+            throw e;
+        }
+    },
+    update: async function(asset) {
+        asset.tanggal = Date.now();
+        const id = asset.id;
+        delete asset.id; // Strip the ID before sending to firestore to keep document clean
+        try {
+            await db.collection(collectionName).doc(id.toString()).update(asset);
+            return id;
+        } catch (e) {
+            console.error('Error update:', e);
+            throw e;
+        }
+    },
+    delete: async function(id) {
+        try {
+            await db.collection(collectionName).doc(id.toString()).delete();
+        } catch (e) {
+            console.error('Error delete:', e);
+            throw e;
+        }
+    },
+    clear: async function() {
+        try {
+            const snapshot = await db.collection(collectionName).get();
+            const docs = snapshot.docs;
+            // Delete in chunks of 500 (Firestore bulk limitation safety threshold)
+            while (docs.length > 0) {
+                const chunk = docs.splice(0, 500);
+                const batch = db.batch();
+                chunk.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+            }
+        } catch (e) {
+            console.error('Error clear:', e);
+            throw e;
+        }
     }
-
-    /** Wrap an IDBRequest in a Promise */
-    function promisify(request) {
-        return new Promise((resolve, reject) => {
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-    }
-
-    return {
-        /** Add a new asset */
-        async add(asset) {
-            asset.tanggal = asset.tanggal || new Date().toISOString();
-            const store = await getStore('readwrite');
-            return promisify(store.add(asset));
-        },
-
-        /** Get all assets */
-        async getAll() {
-            const store = await getStore('readonly');
-            return promisify(store.getAll());
-        },
-
-        /** Get a single asset by id */
-        async getById(id) {
-            const store = await getStore('readonly');
-            return promisify(store.get(id));
-        },
-
-        /** Update an existing asset */
-        async update(asset) {
-            asset.tanggal_update = new Date().toISOString();
-            const store = await getStore('readwrite');
-            return promisify(store.put(asset));
-        },
-
-        /** Delete an asset by id */
-        async delete(id) {
-            const store = await getStore('readwrite');
-            return promisify(store.delete(id));
-        },
-
-        /** Count all assets */
-        async count() {
-            const store = await getStore('readonly');
-            return promisify(store.count());
-        },
-
-        /** Clear all assets */
-        async clear() {
-            const store = await getStore('readwrite');
-            return promisify(store.clear());
-        },
-    };
-})();
+};

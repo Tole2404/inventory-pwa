@@ -152,7 +152,7 @@
 
     function cardHTML(item, idx) {
         const sc = String(item.kondisi).toLowerCase().replace(/[^a-z]/g, '');
-        return `<div class="asset-card" style="animation-delay:${idx*0.04}s" onclick="appDetail(${item.id})">
+        return `<div class="asset-card" style="animation-delay:${idx*0.04}s" onclick="appDetail('${item.id}')">
             <div class="card-header">
                 <div class="card-title-group">
                     <div class="card-kode">${esc(item.kode_barang)}</div>
@@ -347,7 +347,7 @@
         };
         try {
             if (formId.value) {
-                asset.id = parseInt(formId.value, 10);
+                asset.id = formId.value;
                 const existing = await AssetsDB.getById(asset.id);
                 if (existing) asset.tanggal = existing.tanggal;
                 await AssetsDB.update(asset);
