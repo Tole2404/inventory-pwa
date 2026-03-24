@@ -12,6 +12,9 @@
     const filterAudit = document.getElementById('filter-audit');
     const btnInstall = document.getElementById('btn-install');
     const btnAdd = document.getElementById('btn-add');
+    const btnOpenDashboard = document.getElementById('btn-open-dashboard');
+    const dashboardOverlay = document.getElementById('dashboard-overlay');
+    const btnCloseDashboard = document.getElementById('btn-close-dashboard');
     const btnDeleteAll = document.getElementById('btn-delete-all');
     const btnExportExcel = document.getElementById('btn-export-excel');
     const btnImport = document.getElementById('btn-import');
@@ -60,6 +63,21 @@
     let deleteTargetId = null;
     let selectedIds = new Set();
     let checklistMode = false;
+
+    if (btnOpenDashboard && dashboardOverlay) {
+        btnOpenDashboard.addEventListener('click', () => {
+            dashboardOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            if (chartProgress) chartProgress.update();
+            if (chartPetugas) chartPetugas.update();
+        });
+        if (btnCloseDashboard) {
+            btnCloseDashboard.addEventListener('click', () => {
+                dashboardOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+            });
+        }
+    }
 
     // ── Init ──
     async function init() {
@@ -509,8 +527,119 @@
         });
     }
 
+    let chartProgress = null;
+    let chartPetugas = null;
+
     function updateStats(items) {
-        document.querySelector('#stat-total .stat-value').textContent = items.length;
+        const total = items.length;
+        const audited = items.filter(i => !!i.audit_status).length;
+        const pending = total - audited;
+        const broken = items.filter(i => i.audit_status === 'Rusak').length;
+
+        // Header small badge
+        const headerTotal = document.querySelector('#stat-total .stat-value');
+        if (headerTotal) headerTotal.textContent = total;
+
+        // Dashboard cards
+        const elTotal = document.getElementById('total-assets');
+        const elAudited = document.getElementById('total-audited');
+        const elPending = document.getElementById('total-pending');
+        const elBroken = document.getElementById('total-broken');
+
+        if (elTotal) elTotal.textContent = total;
+        if (elAudited) elAudited.textContent = audited;
+        if (elPending) elPending.textContent = pending;
+        if (elBroken) elBroken.textContent = broken;
+
+        updateCharts(audited, pending, items);
+    }
+
+    function updateCharts(audited, pending, items) {
+        if (typeof Chart === 'undefined') return;
+
+        // 1. Progres Audit (Doughnut)
+        const ctxProgress = document.getElementById('chart-audit-progress');
+        if (ctxProgress) {
+            if (chartProgress) {
+                chartProgress.data.datasets[0].data = [audited, pending];
+                chartProgress.update();
+            } else {
+                chartProgress = new Chart(ctxProgress, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Sudah Audit', 'Belum Audit'],
+                        datasets: [{
+                            data: [audited, pending],
+                            backgroundColor: ['#22c55e', '#f59e0b'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: { color: '#94a3b8', font: { size: 11, family: 'Inter' } }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 2. Performa Petugas (Bar)
+        const petugasCounts = {};
+        items.forEach(i => {
+            if (i.audit_petugas) {
+                petugasCounts[i.audit_petugas] = (petugasCounts[i.audit_petugas] || 0) + 1;
+            }
+        });
+
+        const labelsPetugas = Object.keys(petugasCounts);
+        const dataPetugas = Object.values(petugasCounts);
+
+        const ctxPetugas = document.getElementById('chart-audit-petugas');
+        if (ctxPetugas) {
+            if (chartPetugas) {
+                chartPetugas.data.labels = labelsPetugas;
+                chartPetugas.data.datasets[0].data = dataPetugas;
+                chartPetugas.update();
+            } else {
+                chartPetugas = new Chart(ctxPetugas, {
+                    type: 'bar',
+                    data: {
+                        labels: labelsPetugas,
+                        datasets: [{
+                            label: 'Aset Diaudit',
+                            data: dataPetugas,
+                            backgroundColor: '#6366f1',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true, 
+                                ticks: { precision: 0, color: '#94a3b8' }, 
+                                grid: { color: 'rgba(255,255,255,0.05)' } 
+                            },
+                            x: { 
+                                ticks: { color: '#94a3b8', font: { size: 11 } }, 
+                                grid: { display: false } 
+                            }
+                        }
+                    }
+                });
+            }
+        }
     }
 
 
@@ -680,9 +809,10 @@
 
                 // Generate Buffer using WriteBuffer
                 const buffer = await workbook.xlsx.writeBuffer();
-                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const blob = new Blob([buffer], { type: 'application/octet-stream' });
                 const dateSplit = new Date().toISOString().split('T')[0];
-                saveAs(blob, `Laporan_Audit_Aset_${dateSplit}.xlsx`);
+                const fileName = `Laporan-Audit-Aset-${dateSplit}.xlsx`;
+                saveAs(blob, fileName);
 
                 showToast('Laporan Excel berhasil didownload!', 'success');
             } catch (err) {
