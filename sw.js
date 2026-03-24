@@ -3,7 +3,7 @@
  * Cache-first strategy for offline support
  */
 
-const CACHE_NAME = 'tracking-assets-v15';
+const CACHE_NAME = 'tracking-assets-v16';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
