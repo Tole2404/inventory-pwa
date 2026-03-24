@@ -150,12 +150,12 @@
 
         let items = allItems.filter(i => {
             const matchesQuery = !query ||
-                (i.nama_barang  || '').toLowerCase().includes(query) ||
-                (i.kode_barang  || '').toLowerCase().includes(query) ||
-                (i.lokasi       || '').toLowerCase().includes(query) ||
-                (i.kategori     || '').toLowerCase().includes(query) ||
-                (i.subkategori  || '').toLowerCase().includes(query) ||
-                (i.tipe         || '').toLowerCase().includes(query);
+                (i.nama_barang || '').toLowerCase().includes(query) ||
+                (i.kode_barang || '').toLowerCase().includes(query) ||
+                (i.lokasi || '').toLowerCase().includes(query) ||
+                (i.kategori || '').toLowerCase().includes(query) ||
+                (i.subkategori || '').toLowerCase().includes(query) ||
+                (i.tipe || '').toLowerCase().includes(query);
 
             let matchesFilter = true;
             if (filterVal === 'audited') matchesFilter = !!i.audit_status;
@@ -204,8 +204,8 @@
                         </label>
                         <span style="background:rgba(99,102,241,0.25);color:#a5b4fc;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;">${checkedCount} dipilih</span>
                         <div style="margin-left:auto;display:flex;gap:6px;">
-                            <button id="btn-bulk-reset" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:opacity 0.2s;${checkedCount===0?'opacity:0.35;pointer-events:none;':'opacity:1;'}">🗑 Batalkan</button>
-                            <button id="btn-bulk-export" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:opacity 0.2s;${checkedCount===0?'opacity:0.35;pointer-events:none;':'opacity:1;'}">↓ Export</button>
+                            <button id="btn-bulk-reset" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:opacity 0.2s;${checkedCount === 0 ? 'opacity:0.35;pointer-events:none;' : 'opacity:1;'}">🗑 Batalkan</button>
+                            <button id="btn-bulk-export" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:opacity 0.2s;${checkedCount === 0 ? 'opacity:0.35;pointer-events:none;' : 'opacity:1;'}">↓ Export</button>
                         </div>
                     </div>
                     ${items.map((item, i) => cardHTML(item, i, true)).join('')}
@@ -236,7 +236,7 @@
                     btnBulkReset.addEventListener('click', async () => {
                         if (!confirm(`Batalkan audit untuk ${checkedCount} aset yang dipilih?`)) return;
                         for (const id of selectedIds) {
-                            await AssetsDB.update({ id, audit_status:'', audit_visual:'', audit_lokasi:'', audit_petugas:'', audit_keterangan:'', audit_foto:'' });
+                            await AssetsDB.update({ id, audit_status: '', audit_visual: '', audit_lokasi: '', audit_petugas: '', audit_keterangan: '', audit_foto: '' });
                         }
                         selectedIds.clear();
                         showToast(`${checkedCount} data audit berhasil dibatalkan!`, 'success');
@@ -582,11 +582,11 @@
                 worksheet.mergeCells('L1:L2');
 
                 // Style Headers
-                for(let i = 1; i <= 2; i++) {
+                for (let i = 1; i <= 2; i++) {
                     worksheet.getRow(i).eachCell(cell => {
                         cell.font = { bold: true };
                         cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-                        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
                     });
                 }
 
@@ -607,10 +607,10 @@
                         '', // Placeholder for image
                         item.audit_keterangan || ''
                     ]);
-                    
+
                     row.eachCell(cell => {
                         cell.alignment = { vertical: 'middle', wrapText: true };
-                        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
                     });
 
                     // Embed Image if exists
@@ -653,7 +653,7 @@
                                             const ctx = cvs.getContext('2d');
                                             ctx.drawImage(img, 0, 0);
                                             resolve(cvs.toDataURL('image/png').split('base64,')[1]);
-                                        } catch(e) { resolve(null); }
+                                        } catch (e) { resolve(null); }
                                     };
                                     img.src = dataUrl;
                                 });
@@ -718,6 +718,17 @@
 
                     let importedCount = 0;
 
+                    // Buat mapping kolom dinamis dengan default sesuai struktur umum
+                    let colMap = {
+                        status: 0,
+                        kode: 1,
+                        nama: 2,
+                        kategori: 3,
+                        subkategori: 4,
+                        tipe: 7,
+                        lokasi: 8
+                    };
+
                     // Hitung total baris di seluruh sheet terlebih dahulu
                     let totalRows = 0;
                     const allRows = [];
@@ -742,40 +753,52 @@
                             loadingText.innerHTML = `Melacak Anti-Ganda: <strong>${percent}%</strong><br><small>(${i + 1} dari ${totalRows} Aset)</small>`;
                         }
 
-                        // JIKA kebetulan baris pertama adalah judul (Header), lewati saja
+                        // JIKA kebetulan baris pertama adalah judul (Header), tangkap index kolomnya secara dinamis!
                         const firstCol = String(row[0] || '').toLowerCase().trim();
                         const secondCol = String(row[1] || '').toLowerCase().trim();
-                        if (firstCol === 'status' || secondCol.includes('kode')) continue;
+                        if (firstCol === 'status' || secondCol.includes('kode') || secondCol.includes('assetcode')) {
+                            for (let c = 0; c < row.length; c++) {
+                                const h = String(row[c] || '').toLowerCase().trim();
+                                if (!h) continue;
+                                if (h === 'status') colMap.status = c;
+                                else if (h === 'assetcode' || h.includes('kode')) colMap.kode = c;
+                                else if (h === 'assetname' || h.includes('nama')) colMap.nama = c;
+                                else if (h === 'class' || h === 'kategori') colMap.kategori = c;
+                                else if (h === 'subclass' || h === 'subkategori') colMap.subkategori = c;
+                                else if (h === 'type' || h === 'tipe') colMap.tipe = c;
+                                else if (h === 'location' || h === 'lokasi') colMap.lokasi = c;
+                            }
+                            continue; // Lewati baris header agar tidak dimasukkan ke DB
+                        }
 
-                        // EKSTRAKSI KHUSUS sesuai struktur kolom dataset
-                        // 0=status | 1=assetcode | 2=assetname | 3=class | 4=subclass | 5=(gap) | 6=(gap) | 7=(gap) | 8=type | 9=location
-                        const kondisiStr = row[0] ? String(row[0]).trim() : 'Aktif';
+                        // EKSTRAKSI KHUSUS menggunakan mapping dinamis
+                        const kondisiStr = row[colMap.status] !== undefined ? String(row[colMap.status]).trim() : 'Aktif';
 
-                        // ID KRUSIAL: kode dari kolom B (index 1)
-                        let kodeStr = row[1] ? String(row[1]).trim() : '';
+                        // ID KRUSIAL
+                        let kodeStr = row[colMap.kode] !== undefined ? String(row[colMap.kode]).trim() : '';
                         if (!kodeStr) {
                             kodeStr = `INV-${Math.floor(Math.random() * 100000)}`;
                         }
 
-                        const nama        = row[2] ? String(row[2]).trim() : 'Tanpa Nama';
-                        const kategori    = row[3] ? String(row[3]).trim() : '';
-                        const subkategori = row[4] ? String(row[4]).trim() : '';
-                        const tipe        = row[8] ? String(row[8]).trim() : '';
-                        const lokasi      = row[9] ? String(row[9]).trim() : '-';
+                        const nama = row[colMap.nama] !== undefined ? String(row[colMap.nama]).trim() : 'Tanpa Nama';
+                        const kategori = row[colMap.kategori] !== undefined ? String(row[colMap.kategori]).trim() : '';
+                        const subkategori = row[colMap.subkategori] !== undefined ? String(row[colMap.subkategori]).trim() : '';
+                        const tipe = row[colMap.tipe] !== undefined ? String(row[colMap.tipe]).trim() : '';
+                        const lokasi = row[colMap.lokasi] !== undefined ? String(row[colMap.lokasi]).trim() : '-';
 
                         let kondisi = 'Active';
                         const ks = String(kondisiStr).toLowerCase();
                         if (ks.includes('inactive') || ks.includes('nonaktif') || ks.includes('rusak') || ks.includes('hilang')) kondisi = 'Inactive';
 
                         const asset = {
-                            kode_barang:  kodeStr,
-                            nama_barang:  nama,
-                            kategori:     kategori,
-                            subkategori:  subkategori,
-                            tipe:         tipe,
-                            lokasi:       lokasi,
-                            jumlah:       1,
-                            kondisi:      kondisi,
+                            kode_barang: kodeStr,
+                            nama_barang: nama,
+                            kategori: kategori,
+                            subkategori: subkategori,
+                            tipe: tipe,
+                            lokasi: lokasi,
+                            jumlah: 1,
+                            kondisi: kondisi,
                         };
 
                         await AssetsDB.add(asset);
