@@ -889,19 +889,30 @@
         document.body.style.overflow = 'hidden';
     };
     btnConfirmDelete.addEventListener('click', async () => {
+        confirmOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+        
+        if (loadingState) {
+            loadingState.style.display = 'block';
+        }
+        const loadingText = document.getElementById('loading-text');
+
         if (deleteTargetId === 'all') {
+            if (loadingText) loadingText.innerHTML = 'Mengosongkan Semua Data...<br><small>Mohon jangan tutup aplikasi</small>';
             await AssetsDB.clear();
             showToast('Semua data berhasil dikosongkan!', 'success');
             await renderAssets();
             deleteTargetId = null;
         } else if (deleteTargetId !== null) {
+            if (loadingText) loadingText.innerHTML = 'Menghapus Data...';
             await AssetsDB.delete(deleteTargetId);
             showToast('Aset berhasil dihapus', 'success');
             await renderAssets();
             deleteTargetId = null;
         }
-        confirmOverlay.classList.remove('active');
-        document.body.style.overflow = '';
+
+        if (loadingState) loadingState.style.display = 'none';
+        if (loadingText) loadingText.innerHTML = 'Memproses...'; // Reset
     });
     btnConfirmCancel.addEventListener('click', () => {
         deleteTargetId = null;
