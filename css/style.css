@@ -209,6 +209,13 @@ body {
     flex-wrap: wrap;
 }
 
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
 .search-box {
     position: relative;
     flex: 1;
@@ -846,9 +853,18 @@ body {
         flex: 1;
     }
 
+    .action-buttons {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
     .btn-add {
         width: 100%;
         justify-content: center;
+        padding: 10px 8px;
+        font-size: 0.85rem;
     }
 
     .asset-list {
@@ -856,8 +872,8 @@ body {
     }
 
     .form-row {
-        grid-template-columns: 1fr;
-        gap: 10px;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
     }
 
     .modal {
